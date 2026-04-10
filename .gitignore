@@ -1,0 +1,20 @@
+# clasp credentials
+.clasp.json
+.clasprc.json
+
+# Environment variables
+.env
+
+# Node modules (if using npm for clasp)
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
