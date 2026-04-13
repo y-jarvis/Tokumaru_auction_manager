@@ -5,7 +5,7 @@
 
 // スプレッドシートID（ご自身のスプレッドシートIDに変更してください）
 var CONFIG = {
-  SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID_HERE',
+  SPREADSHEET_ID: '1Vxeb5e-gz2-87J6Ye6mrIv581GEGR0zSgyLCy41_WXI',
   SHEET_NAME: '出品管理',
 
   // Gmailラベル
@@ -51,6 +51,9 @@ var CONFIG = {
     PROFIT: 12,
     MEMO: 13
   },
+
+  // Driveインポート用フォルダID
+  DRIVE_FOLDER_ID: '1B83HS19aaGJ9Qot0Q5rkXheNgZ7kAv-L',
 
   // ステータス値
   STATUS: {

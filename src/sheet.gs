@@ -51,6 +51,34 @@ function initializeSheet() {
 }
 
 /**
+ * スプレッドシートを新規作成してIDをログに出力する
+ * GASエディタから手動実行してください
+ * 作成後、表示されたIDを config.gs の SPREADSHEET_ID に設定してください
+ */
+function createSpreadsheet() {
+  var ss = SpreadsheetApp.create('ヤフオク販売管理');
+  var id = ss.getId();
+  var url = ss.getUrl();
+
+  // 出品管理シートをセットアップ
+  var sheet = ss.getActiveSheet();
+  sheet.setName(CONFIG.SHEET_NAME);
+  var headerRange = sheet.getRange(1, 1, 1, CONFIG.HEADERS.length);
+  headerRange.setValues([CONFIG.HEADERS]);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#4a86c8');
+  headerRange.setFontColor('#ffffff');
+  sheet.setFrozenRows(1);
+
+  Logger.log('========================================');
+  Logger.log('スプレッドシートを作成しました');
+  Logger.log('ID: ' + id);
+  Logger.log('URL: ' + url);
+  Logger.log('========================================');
+  Logger.log('config.gs の SPREADSHEET_ID にこのIDを設定してください: ' + id);
+}
+
+/**
  * オークションIDで該当行を検索する
  * @param {string} auctionId - オークションID
  * @return {number} 行番号（1始まり）。見つからない場合は -1
@@ -153,4 +181,93 @@ function updateAuctionRow(auctionId, data) {
 
   Logger.log('更新完了: ' + auctionId + ' ' + JSON.stringify(data));
   return true;
+}
+
+/**
+ * スプレッドシートの全データをログに出力する（デバッグ用）
+ */
+function debugSheetData() {
+  var sheet = getAuctionSheet();
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+
+  if (lastRow <= 1) {
+    Logger.log('データがありません');
+    return;
+  }
+
+  var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+
+  // ヘッダー
+  Logger.log('=== ヘッダー ===');
+  Logger.log(data[0].join(' | '));
+
+  // データ行
+  Logger.log('=== データ（' + (lastRow - 1) + '行） ===');
+  for (var i = 1; i < data.length; i++) {
+    Logger.log('行' + (i + 1) + ': ID=' + data[i][0] +
+      ' | 出品日=' + data[i][1] +
+      ' | 商品名=' + data[i][2] +
+      ' | 開始価格=' + data[i][3] +
+      ' | 終了予定=' + data[i][4] +
+      ' | 現在価格=' + data[i][5] +
+      ' | 入札数=' + data[i][6] +
+      ' | 落札価格=' + data[i][7] +
+      ' | 落札者=' + data[i][8] +
+      ' | ステータス=' + data[i][9]);
+  }
+}
+
+/**
+ * 1つの.emlファイルの中身をデバッグ表示する（パース確認用）
+ * GASエディタから手動実行してください
+ */
+function debugFirstEml() {
+  var folder = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
+  var files = folder.getFiles();
+
+  // 出品メールと終了（落札者あり）メールを1件ずつ探す
+  var listingFound = false;
+  var winningFound = false;
+
+  while (files.hasNext() && (!listingFound || !winningFound)) {
+    var file = files.next();
+    var fileName = file.getName();
+
+    if (!listingFound && /出品：/.test(fileName)) {
+      Logger.log('=== 出品メール サンプル ===');
+      Logger.log('ファイル名: ' + fileName);
+      var content = file.getBlob().getDataAsString('UTF-8');
+      Logger.log('--- 先頭2000文字 ---');
+      Logger.log(content.substring(0, 2000));
+      Logger.log('--- Subject抽出結果 ---');
+      Logger.log('Subject: ' + extractSubjectFromEml(file));
+      Logger.log('AuctionID (subject): ' + extractAuctionIdFromSubject(fileName));
+      var body = parseEmlFile(file);
+      Logger.log('--- パース後本文（先頭1000文字）---');
+      Logger.log(body.substring(0, 1000));
+      Logger.log('AuctionID (body): ' + extractAuctionId(body));
+      listingFound = true;
+    }
+
+    if (!winningFound && /終了（落札者あり）/.test(fileName)) {
+      Logger.log('');
+      Logger.log('=== 終了（落札者あり）メール サンプル ===');
+      Logger.log('ファイル名: ' + fileName);
+      var content2 = file.getBlob().getDataAsString('UTF-8');
+      Logger.log('--- 先頭2000文字 ---');
+      Logger.log(content2.substring(0, 2000));
+      Logger.log('--- Subject抽出結果 ---');
+      Logger.log('Subject: ' + extractSubjectFromEml(file));
+      Logger.log('AuctionID (subject): ' + extractAuctionIdFromSubject(fileName));
+      var body2 = parseEmlFile(file);
+      Logger.log('--- パース後本文（先頭1000文字）---');
+      Logger.log(body2.substring(0, 1000));
+      Logger.log('AuctionID (body): ' + extractAuctionId(body2));
+      var parsed = parseWinningMail(body2);
+      Logger.log('--- parseWinningMail結果 ---');
+      Logger.log(JSON.stringify(parsed));
+      winningFound = true;
+    }
+  }
 }

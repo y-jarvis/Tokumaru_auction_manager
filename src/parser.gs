@@ -8,10 +8,13 @@
 
 // メール種別定数
 var MAIL_TYPE = {
-  LISTING: 'listing',     // 出品完了
-  BID: 'bid',             // 入札通知
-  WINNING: 'winning',     // 落札通知
-  END_UNSOLD: 'end_unsold', // 終了（未落札）
+  LISTING: 'listing',           // 出品
+  BID: 'bid',                   // 入札通知
+  WINNING: 'winning',           // 終了（落札者あり）
+  END_UNSOLD: 'end_unsold',     // 終了（落札者なし）
+  CANCELLED: 'cancelled',       // オークション取消
+  PAYMENT: 'payment',           // 支払い完了
+  SALES_CONFIRMED: 'sales_confirmed', // 売上確定
   UNKNOWN: 'unknown'
 };
 
@@ -23,24 +26,39 @@ var MAIL_TYPE = {
 function classifyMail(subject) {
   if (!subject) return MAIL_TYPE.UNKNOWN;
 
-  // 落札通知（「落札されました」等を含む）
-  if (/落札されました|おめでとうございます.*落札/.test(subject)) {
+  // 終了（落札者あり）= 落札通知
+  if (/終了（落札者あり）|終了\(落札者あり\)|落札されました/.test(subject)) {
     return MAIL_TYPE.WINNING;
   }
 
-  // 入札通知（「入札がありました」等を含む）
+  // 終了（落札者なし）= 未落札
+  if (/終了（落札者なし）|終了\(落札者なし\)|終了しました/.test(subject)) {
+    return MAIL_TYPE.END_UNSOLD;
+  }
+
+  // 入札通知
   if (/入札がありました|入札.*ありました|新しい入札/.test(subject)) {
     return MAIL_TYPE.BID;
   }
 
-  // 出品完了（「出品しました」「出品完了」等を含む）
-  if (/出品しました|出品完了|出品が完了/.test(subject)) {
+  // 出品（「出品：」パターン）
+  if (/出品：|出品:|出品しました|出品完了/.test(subject)) {
     return MAIL_TYPE.LISTING;
   }
 
-  // 終了通知（未落札）（「終了しました」等を含む）
-  if (/終了しました|オークション終了/.test(subject)) {
-    return MAIL_TYPE.END_UNSOLD;
+  // オークション取消
+  if (/オークションの取り消し|取り消しました/.test(subject)) {
+    return MAIL_TYPE.CANCELLED;
+  }
+
+  // 支払い完了
+  if (/支払いが完了しました/.test(subject)) {
+    return MAIL_TYPE.PAYMENT;
+  }
+
+  // 売上確定
+  if (/売上が確定しました/.test(subject)) {
+    return MAIL_TYPE.SALES_CONFIRMED;
   }
 
   return MAIL_TYPE.UNKNOWN;
@@ -68,6 +86,43 @@ function extractAuctionId(body) {
   if (idMatch2) return idMatch2[1];
 
   return null;
+}
+
+/**
+ * 件名やファイル名からオークションIDを抽出する
+ * パターン: (ID) や （ID） の形式
+ * @param {string} text - 件名やファイル名
+ * @return {string|null} オークションID
+ */
+function extractAuctionIdFromSubject(text) {
+  if (!text) return null;
+
+  // 半角括弧パターン: (x1234567890)
+  var match = text.match(/\(([a-zA-Z]?\d{7,})\)/);
+  if (match) return match[1];
+
+  // 全角括弧パターン: （x1234567890）
+  var match2 = text.match(/（([a-zA-Z]?\d{7,})）/);
+  if (match2) return match2[1];
+
+  return null;
+}
+
+/**
+ * 件名やファイル名から商品名を抽出する
+ * パターン: "Yahoo!オークション - 終了（落札者あり）：商品名(ID).eml"
+ * @param {string} text - 件名やファイル名
+ * @return {string} 商品名
+ */
+function extractItemNameFromSubject(text) {
+  if (!text) return '';
+
+  // "：商品名(ID)" パターン
+  var match = text.match(/[：:]\s*(.+?)[\(（][a-zA-Z]?\d{7,}[\)）]/);
+  if (match) return match[1].trim();
+
+  // "：（ID）" パターン（出品メール、商品名なし）
+  return '';
 }
 
 /**
