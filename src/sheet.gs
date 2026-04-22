@@ -39,6 +39,40 @@ function setupHeaders(sheet) {
   headerRange.setBackground('#4a86c8');
   headerRange.setFontColor('#ffffff');
   sheet.setFrozenRows(1);
+
+  // ステータス列（J列）に条件付き書式を設定
+  var statusCol = CONFIG.COL.STATUS;
+  var maxRow = 1000;
+  var statusRange = sheet.getRange(2, statusCol, maxRow, 1);
+
+  // 既存の条件付き書式をリセット
+  var rules = sheet.getConditionalFormatRules().filter(function(r) {
+    var ranges = r.getRanges();
+    for (var i = 0; i < ranges.length; i++) {
+      if (ranges[i].getColumn() === statusCol) return false;
+    }
+    return true;
+  });
+
+  var statusRules = [
+    { value: CONFIG.STATUS.LISTING,  bg: '#cfe2f3', fg: '#1a4a7a' }, // 出品中: 青
+    { value: CONFIG.STATUS.SOLD,     bg: '#b6d7a8', fg: '#274e13' }, // 落札済: 緑
+    { value: CONFIG.STATUS.UNSOLD,   bg: '#e0e0e0', fg: '#555555' }, // 未落札: グレー
+    { value: CONFIG.STATUS.CANCELLED,bg: '#f4cccc', fg: '#990000' }  // 取消: 赤
+  ];
+
+  statusRules.forEach(function(s) {
+    rules.push(
+      SpreadsheetApp.newConditionalFormatRule()
+        .whenTextEqualTo(s.value)
+        .setBackground(s.bg)
+        .setFontColor(s.fg)
+        .setRanges([statusRange])
+        .build()
+    );
+  });
+
+  sheet.setConditionalFormatRules(rules);
 }
 
 /**
@@ -163,21 +197,17 @@ function updateAuctionRow(auctionId, data) {
     return false;
   }
 
-  if (data.currentPrice !== undefined) {
-    sheet.getRange(row, CONFIG.COL.CURRENT_PRICE).setValue(data.currentPrice);
-  }
-  if (data.bidCount !== undefined) {
-    sheet.getRange(row, CONFIG.COL.BID_COUNT).setValue(data.bidCount);
-  }
-  if (data.winningPrice !== undefined) {
-    sheet.getRange(row, CONFIG.COL.WINNING_PRICE).setValue(data.winningPrice);
-  }
-  if (data.winner !== undefined) {
-    sheet.getRange(row, CONFIG.COL.WINNER).setValue(data.winner);
-  }
-  if (data.status !== undefined) {
-    sheet.getRange(row, CONFIG.COL.STATUS).setValue(data.status);
-  }
+  // 既存行を一括取得して変更箇所だけ上書きし、1回の setValues で書き戻す
+  var rowRange = sheet.getRange(row, 1, 1, CONFIG.HEADERS.length);
+  var rowValues = rowRange.getValues()[0];
+
+  if (data.currentPrice !== undefined) rowValues[CONFIG.COL.CURRENT_PRICE - 1] = data.currentPrice;
+  if (data.bidCount     !== undefined) rowValues[CONFIG.COL.BID_COUNT     - 1] = data.bidCount;
+  if (data.winningPrice !== undefined) rowValues[CONFIG.COL.WINNING_PRICE - 1] = data.winningPrice;
+  if (data.winner       !== undefined) rowValues[CONFIG.COL.WINNER        - 1] = data.winner;
+  if (data.status       !== undefined) rowValues[CONFIG.COL.STATUS        - 1] = data.status;
+
+  rowRange.setValues([rowValues]);
 
   Logger.log('更新完了: ' + auctionId + ' ' + JSON.stringify(data));
   return true;
@@ -216,6 +246,74 @@ function debugSheetData() {
       ' | 落札者=' + data[i][8] +
       ' | ステータス=' + data[i][9]);
   }
+}
+
+/**
+ * 月次サマリーをログに出力する
+ * GASエディタから手動実行してください
+ * @param {number} [year]  - 対象年（省略時は当年）
+ * @param {number} [month] - 対象月 1〜12（省略時は当月）
+ */
+function getMonthlySummary(year, month) {
+  var now = new Date();
+  var targetYear  = year  || now.getFullYear();
+  var targetMonth = month || (now.getMonth() + 1);
+
+  var sheet   = getAuctionSheet();
+  var lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    Logger.log('データがありません');
+    return;
+  }
+
+  var data = sheet.getRange(2, 1, lastRow - 1, CONFIG.HEADERS.length).getValues();
+
+  var totalListed  = 0;
+  var totalSold    = 0;
+  var totalUnsold  = 0;
+  var salesSum     = 0;
+  var profitSum    = 0;
+  var profitCount  = 0;
+
+  data.forEach(function(row) {
+    var listedAt = row[CONFIG.COL.LISTED_AT - 1];
+    if (!listedAt) return;
+
+    var d = (listedAt instanceof Date) ? listedAt : new Date(listedAt);
+    if (isNaN(d.getTime())) return;
+    if (d.getFullYear() !== targetYear || (d.getMonth() + 1) !== targetMonth) return;
+
+    totalListed++;
+
+    var status       = row[CONFIG.COL.STATUS        - 1];
+    var winningPrice = row[CONFIG.COL.WINNING_PRICE - 1];
+    var costPrice    = row[CONFIG.COL.COST_PRICE    - 1];
+
+    if (status === CONFIG.STATUS.SOLD) {
+      totalSold++;
+      if (winningPrice) salesSum += Number(winningPrice);
+      if (winningPrice && costPrice) {
+        profitSum += Number(winningPrice) - Number(costPrice);
+        profitCount++;
+      }
+    } else if (status === CONFIG.STATUS.UNSOLD) {
+      totalUnsold++;
+    }
+  });
+
+  var winRate = totalListed > 0 ? Math.round(totalSold / totalListed * 100) : 0;
+
+  Logger.log('========================================');
+  Logger.log(targetYear + '年' + targetMonth + '月 月次サマリー');
+  Logger.log('========================================');
+  Logger.log('出品数    : ' + totalListed + ' 件');
+  Logger.log('落札数    : ' + totalSold   + ' 件');
+  Logger.log('未落札数  : ' + totalUnsold + ' 件');
+  Logger.log('落札率    : ' + winRate     + ' %');
+  Logger.log('売上合計  : ' + salesSum.toLocaleString()  + ' 円');
+  Logger.log('利益合計  : ' + (profitCount > 0 ? profitSum.toLocaleString() + ' 円（' + profitCount + '件分）' : '（仕入価格未入力）'));
+  Logger.log('========================================');
 }
 
 /**

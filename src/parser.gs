@@ -73,7 +73,11 @@ function extractAuctionId(body) {
   if (!body) return null;
 
   // ヤフオクのオークションIDパターン（英数字で構成）
-  // URLから抽出: page.auctions.yahoo.co.jp/jp/auction/XXXXX
+  // 新URL形式: auctions.yahoo.co.jp/item/XXXXX
+  var newUrlMatch = body.match(/auctions\.yahoo\.co\.jp\/(?:item|auction)\/([a-zA-Z0-9]+)/);
+  if (newUrlMatch) return newUrlMatch[1];
+
+  // 旧URL形式: page.auctions.yahoo.co.jp/jp/auction/XXXXX
   var urlMatch = body.match(/page\.auctions\.yahoo\.co\.jp\/jp\/auction\/([a-zA-Z0-9]+)/);
   if (urlMatch) return urlMatch[1];
 
