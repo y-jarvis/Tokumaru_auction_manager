@@ -71,7 +71,7 @@ function processMessage(message) {
       return handleListingMail(body, mailDate, subject);
 
     case MAIL_TYPE.BID:
-      return handleBidMail(body);
+      return handleBidMail(body, subject);
 
     case MAIL_TYPE.WINNING:
       return handleWinningMail(body, subject);
@@ -135,13 +135,36 @@ function handleListingMail(body, mailDate, subject) {
 /**
  * 入札通知メールを処理する
  * @param {string} body - メール本文
+ * @param {string} [subject] - メール件名（フォールバック用）
  * @return {boolean} 処理成功の場合 true
  */
-function handleBidMail(body) {
+function handleBidMail(body, subject) {
   var data = parseBidMail(body);
+
+  // 本文パースに失敗した場合、件名からIDを取得
+  if (!data && subject) {
+    var auctionId = extractAuctionIdFromSubject(subject);
+    if (auctionId) {
+      data = { auctionId: auctionId, currentPrice: 0, bidCount: 0 };
+    }
+  }
+
   if (!data) {
     log('WARN', '入札通知メールのパースに失敗しました');
     return false;
+  }
+
+  // 出品行がまだなければプレースホルダーを作成
+  if (findRowByAuctionId(data.auctionId) === -1) {
+    var itemName = subject ? extractItemNameFromSubject(subject) : '';
+    insertAuctionRow({
+      auctionId: data.auctionId,
+      listedAt: '',
+      itemName: itemName,
+      startPrice: 0,
+      endDate: ''
+    });
+    log('INFO', '入札メール先着: プレースホルダー作成 ' + data.auctionId);
   }
 
   var updated = updateAuctionRow(data.auctionId, {

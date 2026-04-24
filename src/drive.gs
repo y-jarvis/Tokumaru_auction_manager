@@ -95,7 +95,7 @@ function importFromDrive() {
           result = handleListingMail(body, fileDate, subjectForFallback);
           break;
         case MAIL_TYPE.BID:
-          result = handleBidMail(body);
+          result = handleBidMail(body, subjectForFallback);
           break;
         case MAIL_TYPE.WINNING:
           result = handleWinningMail(body, subjectForFallback);
@@ -277,25 +277,25 @@ function decodeMimeHeader(encoded) {
  * @return {string} MAIL_TYPE のいずれか
  */
 function classifyFromBody(body) {
-  if (/終了（落札者あり）|終了\(落札者あり\)|落札されました/.test(body)) {
+  if (/終了（落札者あり）|終了\(落札者あり\)|落札されました|ご落札/.test(body)) {
     return MAIL_TYPE.WINNING;
   }
   if (/終了（落札者なし）|終了\(落札者なし\)/.test(body)) {
     return MAIL_TYPE.END_UNSOLD;
   }
-  if (/入札がありました|入札.*ありました|新しい入札/.test(body)) {
+  if (/入札がありました|入札.*ありました|新しい入札|ご入札を受け付け/.test(body)) {
     return MAIL_TYPE.BID;
   }
-  if (/出品：|出品:|出品しました|出品完了|出品が完了/.test(body)) {
+  if (/出品[：:]|出品しました|出品完了|出品が完了/.test(body)) {
     return MAIL_TYPE.LISTING;
   }
   if (/オークションの取り消し|取り消しました/.test(body)) {
     return MAIL_TYPE.CANCELLED;
   }
-  if (/支払いが完了しました/.test(body)) {
+  if (/支払いが完了しました|お支払いが完了/.test(body)) {
     return MAIL_TYPE.PAYMENT;
   }
-  if (/売上が確定しました/.test(body)) {
+  if (/売上が確定しました|売上確定/.test(body)) {
     return MAIL_TYPE.SALES_CONFIRMED;
   }
   return MAIL_TYPE.UNKNOWN;

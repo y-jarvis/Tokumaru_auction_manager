@@ -40,6 +40,26 @@ function setupHeaders(sheet) {
   headerRange.setFontColor('#ffffff');
   sheet.setFrozenRows(1);
 
+  // 列幅設定
+  var colWidths = {
+    1:  120, // オークションID
+    2:  140, // 出品日時
+    3:  280, // 商品名
+    4:   90, // 開始価格
+    5:  140, // 終了予定日
+    6:   90, // 現在価格
+    7:   60, // 入札数
+    8:   90, // 落札価格
+    9:  120, // 落札者
+    10:  90, // ステータス
+    11:  90, // 仕入価格
+    12:  90, // 利益
+    13: 200  // メモ
+  };
+  for (var col in colWidths) {
+    sheet.setColumnWidth(Number(col), colWidths[col]);
+  }
+
   // ステータス列（J列）に条件付き書式を設定
   var statusCol = CONFIG.COL.STATUS;
   var maxRow = 1000;

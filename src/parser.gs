@@ -27,37 +27,44 @@ function classifyMail(subject) {
   if (!subject) return MAIL_TYPE.UNKNOWN;
 
   // 終了（落札者あり）= 落札通知
-  if (/終了（落札者あり）|終了\(落札者あり\)|落札されました/.test(subject)) {
+  // 例: "Yahoo!オークション - 終了（落札者あり）：商品名"
+  if (/終了（落札者あり）|終了\(落札者あり\)|落札されました|ご落札/.test(subject)) {
     return MAIL_TYPE.WINNING;
   }
 
   // 終了（落札者なし）= 未落札
-  if (/終了（落札者なし）|終了\(落札者なし\)|終了しました/.test(subject)) {
+  // 例: "Yahoo!オークション - 終了（落札者なし）：商品名"
+  if (/終了（落札者なし）|終了\(落札者なし\)/.test(subject)) {
     return MAIL_TYPE.END_UNSOLD;
   }
 
-  // 入札通知
-  if (/入札がありました|入札.*ありました|新しい入札/.test(subject)) {
+  // 入札通知（入札キャンセルは別途 UNKNOWN として無視）
+  // 例: "Yahoo!オークション - 入札がありました"
+  //     "Yahoo!オークション - ご入札を受け付けました"
+  if (/入札がありました|入札.*ありました|新しい入札|ご入札を受け付け/.test(subject)) {
     return MAIL_TYPE.BID;
   }
 
-  // 出品（「出品：」パターン）
-  if (/出品：|出品:|出品しました|出品完了/.test(subject)) {
+  // 出品完了
+  // 例: "Yahoo!オークション - 出品：商品名（ID）"
+  if (/出品[：:]|出品しました|出品完了|出品が完了/.test(subject)) {
     return MAIL_TYPE.LISTING;
   }
 
   // オークション取消
+  // 例: "Yahoo!オークション - オークションの取り消し：商品名"
+  //     "Yahoo!オークション - 再出品のお知らせ" は取消とは違うので除外
   if (/オークションの取り消し|取り消しました/.test(subject)) {
     return MAIL_TYPE.CANCELLED;
   }
 
   // 支払い完了
-  if (/支払いが完了しました/.test(subject)) {
+  if (/支払いが完了しました|お支払いが完了/.test(subject)) {
     return MAIL_TYPE.PAYMENT;
   }
 
   // 売上確定
-  if (/売上が確定しました/.test(subject)) {
+  if (/売上が確定しました|売上確定/.test(subject)) {
     return MAIL_TYPE.SALES_CONFIRMED;
   }
 
