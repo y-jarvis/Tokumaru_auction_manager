@@ -1,0 +1,32 @@
+name: Deploy to Google Apps Script
+
+on:
+  push:
+    branches:
+      - main
+      - claude/yahoo-auctions-automation-ySFp7
+    paths:
+      - 'src/**'
+      - 'appsscript.json'
+      - '.clasp.json'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Write clasp credentials
+        run: echo '${{ secrets.CLASPRC_JSON }}' > ~/.clasprc.json
+
+      - name: Push to GAS
+        run: clasp push --force

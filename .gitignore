@@ -1,6 +1,8 @@
-# clasp credentials
-.clasp.json
+# clasp OAuth tokens (secrets — never commit)
 .clasprc.json
+
+# local clasp config (contains scriptId — committed to repo)
+# .clasp.json
 
 # Environment variables
 .env
