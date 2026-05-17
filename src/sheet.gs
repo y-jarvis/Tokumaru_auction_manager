@@ -5,10 +5,27 @@
 
 /**
  * スプレッドシートを取得する
+ * ScriptProperties に保存されたIDを優先し、なければ CONFIG.SPREADSHEET_ID を使う
  * @return {SpreadsheetApp.Spreadsheet}
  */
 function getSpreadsheet() {
-  return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('SPREADSHEET_ID') || CONFIG.SPREADSHEET_ID;
+  return SpreadsheetApp.openById(id);
+}
+
+/**
+ * スプレッドシートを新規作成してIDをScriptPropertiesに保存する
+ * 初回セットアップ時に一度だけ手動実行してください
+ */
+function initializeSpreadsheet() {
+  var ss = SpreadsheetApp.create('ヤフオク販売管理');
+  var id = ss.getId();
+  PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', id);
+  Logger.log('スプレッドシートを作成しました。ID: ' + id);
+  Logger.log('URL: ' + ss.getUrl());
+  setupHeaders(ss.getSheets()[0]);
+  Logger.log('ヘッダー設定完了。setupTrigger() を実行してください。');
 }
 
 /**
