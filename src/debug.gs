@@ -162,3 +162,38 @@ function fullDiagnosis() {
   Logger.log('=== 包括診断 終了 ===');
   Logger.log('========================================');
 }
+
+/**
+ * Gmail ラベル診断: メール検索状況を確認する
+ * 「未処理メールはありません」が出るときに実行してください
+ */
+function diagnoseMail() {
+  Logger.log('=== Gmail ラベル診断 ===');
+
+  // ヤフオクラベルのみで検索（処理済みフィルターなし）
+  var allThreads = GmailApp.search('label:' + CONFIG.LABEL_YAHOO_AUCTION, 0, 10);
+  Logger.log('「ヤフオク」ラベルのスレッド数: ' + allThreads.length);
+
+  // 未処理のみ
+  var unprocessed = GmailApp.search(
+    'label:' + CONFIG.LABEL_YAHOO_AUCTION + ' -label:' + CONFIG.LABEL_PROCESSED, 0, 10
+  );
+  Logger.log('未処理スレッド数: ' + unprocessed.length);
+
+  // 処理済みのみ
+  var processed = GmailApp.search(
+    'label:' + CONFIG.LABEL_YAHOO_AUCTION + ' label:' + CONFIG.LABEL_PROCESSED, 0, 10
+  );
+  Logger.log('処理済みスレッド数: ' + processed.length);
+
+  if (allThreads.length > 0) {
+    Logger.log('--- 最新3件のメール件名 ---');
+    for (var i = 0; i < Math.min(3, allThreads.length); i++) {
+      var msgs = allThreads[i].getMessages();
+      Logger.log('[' + i + '] ' + msgs[msgs.length - 1].getSubject());
+      Logger.log('    From: ' + msgs[msgs.length - 1].getFrom());
+      var labels = allThreads[i].getLabels().map(function(l) { return l.getName(); });
+      Logger.log('    Labels: ' + labels.join(', '));
+    }
+  }
+}
