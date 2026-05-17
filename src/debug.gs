@@ -197,3 +197,30 @@ function diagnoseMail() {
     }
   }
 }
+
+/**
+ * 「ヤフオク処理済」ラベルを全スレッドから一括削除する
+ * importAllMails() が「未処理メールはありません」と返す場合に実行してください
+ * GAS 6分制限対策のため複数回実行が必要な場合があります
+ */
+function resetProcessedLabels() {
+  var label = GmailApp.getUserLabelByName(CONFIG.LABEL_PROCESSED);
+  if (!label) {
+    Logger.log('「' + CONFIG.LABEL_PROCESSED + '」ラベルは存在しません');
+    return;
+  }
+
+  var removed = 0;
+  var threads;
+  do {
+    threads = GmailApp.search('label:' + CONFIG.LABEL_PROCESSED, 0, 100);
+    for (var i = 0; i < threads.length; i++) {
+      threads[i].removeLabel(label);
+      removed++;
+    }
+    Logger.log(removed + '件のラベルを削除しました...');
+  } while (threads.length === 100);
+
+  Logger.log('完了: 合計 ' + removed + ' スレッドから「' + CONFIG.LABEL_PROCESSED + '」を削除しました');
+  Logger.log('次に importAllMails() を実行してください');
+}
