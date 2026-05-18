@@ -215,7 +215,7 @@ function extractDateFromEml(file) {
 function decodeBase64Body(emlContent) {
   // text/plain パートを優先的に探す
   var textPlainMatch = emlContent.match(
-    /Content-Type:\s*text\/plain[^\r\n]*\r?\n(?:Content-Transfer-Encoding:\s*base64\r?\n)?(?:[^\r\n]+\r?\n)*\r?\n([\s\S]*?)(?:\r?\n--|\Z)/i
+    /Content-Type:\s*text\/plain[^\r\n]*\r?\n(?:Content-Transfer-Encoding:\s*base64\r?\n)?(?:[^\r\n]+\r?\n)*\r?\n([\s\S]*?)(?:\r?\n--|$)/i
   );
 
   if (textPlainMatch) {
@@ -225,7 +225,7 @@ function decodeBase64Body(emlContent) {
 
   // text/html パートにフォールバック
   var textHtmlMatch = emlContent.match(
-    /Content-Type:\s*text\/html[^\r\n]*\r?\n(?:Content-Transfer-Encoding:\s*base64\r?\n)?(?:[^\r\n]+\r?\n)*\r?\n([\s\S]*?)(?:\r?\n--|\Z)/i
+    /Content-Type:\s*text\/html[^\r\n]*\r?\n(?:Content-Transfer-Encoding:\s*base64\r?\n)?(?:[^\r\n]+\r?\n)*\r?\n([\s\S]*?)(?:\r?\n--|$)/i
   );
 
   if (textHtmlMatch) {

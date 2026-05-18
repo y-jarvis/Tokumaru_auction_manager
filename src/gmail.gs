@@ -57,7 +57,12 @@ function getMessagesFromThread(thread) {
  */
 function isYahooAuctionMail(message) {
   var from = message.getFrom();
-  return /yahoo\.co\.jp/i.test(from);
+  // アドレス部分のみ抽出して検証（表示名に yahoo.co.jp が含まれる詐称を防ぐ）
+  var addrMatch = from.match(/<([^>]+)>/);
+  var email = (addrMatch ? addrMatch[1] : from).toLowerCase();
+  return email.endsWith('@mail.yahoo.co.jp') ||
+         email.endsWith('@auctions.yahoo.co.jp') ||
+         email.endsWith('@yahoo.co.jp');
 }
 
 /**

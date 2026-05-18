@@ -159,15 +159,10 @@ function findRowByAuctionId(auctionId) {
   var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return -1;
 
-  var idRange = sheet.getRange(2, CONFIG.COL.AUCTION_ID, lastRow - 1, 1);
-  var values = idRange.getValues();
-
-  for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0]) === String(auctionId)) {
-      return i + 2; // ヘッダー行分 +1、0始まり→1始まり +1
-    }
-  }
-  return -1;
+  var finder = sheet.getRange(2, CONFIG.COL.AUCTION_ID, lastRow - 1, 1)
+    .createTextFinder(String(auctionId)).matchEntireCell(true);
+  var result = finder.findNext();
+  return result ? result.getRow() : -1;
 }
 
 /**

@@ -3,8 +3,6 @@
  * clasp run の代替として使用
  */
 
-var WEBAPP_SECRET = 'tokumaru-auction-2026';
-
 /**
  * GETリクエストを受け付けて関数を実行する
  * @param {Object} e - リクエストパラメータ
@@ -13,7 +11,8 @@ function doGet(e) {
   var secret = e.parameter.secret || '';
   var fn = e.parameter.fn || '';
 
-  if (secret !== WEBAPP_SECRET) {
+  var storedSecret = PropertiesService.getScriptProperties().getProperty('WEBAPP_SECRET');
+  if (!storedSecret || secret !== storedSecret) {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', message: 'unauthorized'
     })).setMimeType(ContentService.MimeType.JSON);
@@ -43,4 +42,14 @@ function doGet(e) {
   return ContentService.createTextOutput(JSON.stringify({
     status: 'ok', result: result
   })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Webアプリのシークレットを ScriptProperties に設定する
+ * 初回セットアップ時に一度だけ GASエディタから手動実行してください
+ */
+function setupWebappSecret() {
+  var secret = 'tokumaru-auction-2026';
+  PropertiesService.getScriptProperties().setProperty('WEBAPP_SECRET', secret);
+  Logger.log('WEBAPP_SECRET を設定しました');
 }
