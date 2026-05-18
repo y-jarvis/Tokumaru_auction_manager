@@ -164,6 +164,26 @@ function fullDiagnosis() {
 }
 
 /**
+ * 落札メールの本文をログ出力してパターンを確認する
+ * パーサー修正前に実行してください
+ */
+function debugWinningMailBody() {
+  var threads = GmailApp.search(
+    'label:' + CONFIG.LABEL_YAHOO_AUCTION + ' subject:終了（落札者あり）', 0, 1
+  );
+  if (threads.length === 0) {
+    Logger.log('落札メールが見つかりません');
+    return;
+  }
+  var msgs = threads[0].getMessages();
+  var msg = msgs[0];
+  Logger.log('=== 件名 ===');
+  Logger.log(msg.getSubject());
+  Logger.log('=== 本文（プレーンテキスト）===');
+  Logger.log(msg.getPlainBody().substring(0, 2000));
+}
+
+/**
  * Gmail ラベル診断: メール検索状況を確認する
  * 「未処理メールはありません」が出るときに実行してください
  */
