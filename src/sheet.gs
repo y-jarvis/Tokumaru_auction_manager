@@ -182,9 +182,16 @@ function findRowByAuctionId(auctionId) {
 function insertAuctionRow(data) {
   var sheet = getAuctionSheet();
 
-  // 既に同じオークションIDが存在する場合はスキップ
-  if (findRowByAuctionId(data.auctionId) !== -1) {
-    Logger.log('既存のオークションID: ' + data.auctionId + ' スキップしました');
+  // 既に同じオークションIDが存在する場合、商品名が空なら補完して終了
+  var existingRow = findRowByAuctionId(data.auctionId);
+  if (existingRow !== -1) {
+    if (data.itemName) {
+      var existingName = sheet.getRange(existingRow, CONFIG.COL.ITEM_NAME).getValue();
+      if (!existingName) {
+        sheet.getRange(existingRow, CONFIG.COL.ITEM_NAME).setValue(data.itemName);
+        Logger.log('商品名を補完: ' + data.auctionId + ' - ' + data.itemName);
+      }
+    }
     return;
   }
 
@@ -238,6 +245,7 @@ function updateAuctionRow(auctionId, data) {
   var rowRange = sheet.getRange(row, 1, 1, CONFIG.HEADERS.length);
   var rowValues = rowRange.getValues()[0];
 
+  if (data.itemName     !== undefined && data.itemName) rowValues[CONFIG.COL.ITEM_NAME    - 1] = data.itemName;
   if (data.currentPrice !== undefined) rowValues[CONFIG.COL.CURRENT_PRICE - 1] = data.currentPrice;
   if (data.bidCount     !== undefined) rowValues[CONFIG.COL.BID_COUNT     - 1] = data.bidCount;
   if (data.winningPrice !== undefined) rowValues[CONFIG.COL.WINNING_PRICE - 1] = data.winningPrice;

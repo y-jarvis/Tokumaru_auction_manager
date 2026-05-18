@@ -151,35 +151,25 @@ function parseListingMail(body, mailDate) {
     return null;
   }
 
-  // 商品名を抽出
+  // 商品名: "商品：商品名" 形式
   var itemName = '';
-  var nameMatch = body.match(/商品名\s*[：:]\s*(.+?)[\r\n]/);
+  var nameMatch = body.match(/商品\s*[：:]\s*(.+?)[\r\n]/);
   if (nameMatch) {
     itemName = nameMatch[1].trim();
-  } else {
-    // 件名から商品名を推測（「〜を出品しました」パターン）
-    var nameMatch2 = body.match(/「(.+?)」/);
-    if (nameMatch2) itemName = nameMatch2[1].trim();
   }
 
-  // 開始価格を抽出
+  // 開始価格: "開始価格：6,000 円" 形式
   var startPrice = 0;
   var priceMatch = body.match(/開始価格\s*[：:]\s*([0-9,]+)\s*円/);
   if (priceMatch) {
     startPrice = parseInt(priceMatch[1].replace(/,/g, ''), 10);
-  } else {
-    var priceMatch2 = body.match(/([0-9,]+)\s*円.*(?:から|スタート|開始)/);
-    if (priceMatch2) startPrice = parseInt(priceMatch2[1].replace(/,/g, ''), 10);
   }
 
-  // 終了予定日を抽出
+  // 終了予定日: "終了日時：5月 17日 23時 45分" 形式
   var endDate = '';
-  var endMatch = body.match(/終了(?:日時|予定日?)\s*[：:]\s*(.+?)[\r\n]/);
+  var endMatch = body.match(/終了日時\s*[：:]\s*(.+?)[\r\n]/);
   if (endMatch) {
     endDate = endMatch[1].trim();
-  } else {
-    var endMatch2 = body.match(/(\d{4}[\/-]\d{1,2}[\/-]\d{1,2}\s+\d{1,2}:\d{2}).*(?:終了|まで)/);
-    if (endMatch2) endDate = endMatch2[1].trim();
   }
 
   return {
@@ -246,30 +236,31 @@ function parseWinningMail(body) {
     return null;
   }
 
-  // 落札価格を抽出
+  // 商品名: "商品：商品名" 形式
+  var itemName = '';
+  var nameMatch = body.match(/商品\s*[：:]\s*(.+?)[\r\n]/);
+  if (nameMatch) itemName = nameMatch[1].trim();
+
+  // 落札金額: "落札金額：18,100 円" 形式（ヤフオクは「落札金額」）
   var winningPrice = 0;
-  var priceMatch = body.match(/落札価格\s*[：:]\s*([0-9,]+)\s*円/);
+  var priceMatch = body.match(/落札金額\s*[：:]\s*([0-9,]+)\s*円/);
   if (priceMatch) {
     winningPrice = parseInt(priceMatch[1].replace(/,/g, ''), 10);
-  } else {
-    var priceMatch2 = body.match(/([0-9,]+)\s*円.*(?:で落札|落札されました)/);
-    if (priceMatch2) winningPrice = parseInt(priceMatch2[1].replace(/,/g, ''), 10);
   }
 
-  // 落札者IDを抽出
-  var winner = '';
-  var winnerMatch = body.match(/落札者\s*[：:]\s*(.+?)[\r\n]/);
-  if (winnerMatch) {
-    winner = winnerMatch[1].trim();
-  } else {
-    var winnerMatch2 = body.match(/落札者.*?ID\s*[：:]\s*(.+?)[\r\n]/);
-    if (winnerMatch2) winner = winnerMatch2[1].trim();
-  }
+  // 入札件数: "入札件数：13" 形式
+  var bidCount = 0;
+  var bidMatch = body.match(/入札件数\s*[：:]\s*(\d+)/);
+  if (bidMatch) bidCount = parseInt(bidMatch[1], 10);
+
+  // 落札者IDはメール本文に含まれないためスキップ
 
   return {
     auctionId: auctionId,
+    itemName: itemName,
     winningPrice: winningPrice,
-    winner: winner
+    bidCount: bidCount,
+    winner: ''
   };
 }
 

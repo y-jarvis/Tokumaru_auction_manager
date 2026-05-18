@@ -219,8 +219,10 @@ function handleWinningMail(body, subject) {
   }
 
   var updated = updateAuctionRow(data.auctionId, {
+    itemName: data.itemName,
     winningPrice: data.winningPrice,
     currentPrice: data.winningPrice,
+    bidCount: data.bidCount,
     winner: data.winner,
     status: CONFIG.STATUS.SOLD
   });
