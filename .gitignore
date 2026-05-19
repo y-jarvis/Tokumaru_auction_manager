@@ -20,3 +20,8 @@ Thumbs.db
 *~
 .vscode/
 .idea/
+
+# Local agent artifacts
+.claude/
+.harness-mem/
+compass_artifact_*.md
