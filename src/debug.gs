@@ -20,18 +20,15 @@ function fullDiagnosis() {
   Logger.log('データ行数: ' + (lastRow - 1));
 
   if (lastRow > 1) {
-    var data = sheet.getRange(2, 1, Math.min(lastRow - 1, 5), 13).getValues();
+    var data = sheet.getRange(2, 1, Math.min(lastRow - 1, 5), CONFIG.HEADERS.length).getValues();
     for (var i = 0; i < data.length; i++) {
-      Logger.log('行' + (i + 2) + ': ID=' + data[i][0] +
-        ' | 出品日=' + data[i][1] +
-        ' | 商品名=' + data[i][2] +
-        ' | 開始価格=' + data[i][3] +
-        ' | 終了予定=' + data[i][4] +
-        ' | 現在価格=' + data[i][5] +
-        ' | 入札数=' + data[i][6] +
-        ' | 落札価格=' + data[i][7] +
-        ' | 落札者=' + data[i][8] +
-        ' | ステータス=' + data[i][9]);
+      Logger.log('行' + (i + 2) + ': ID='        + data[i][CONFIG.COL.AUCTION_ID    - 1] +
+        ' | 商品名='    + data[i][CONFIG.COL.ITEM_NAME     - 1] +
+        ' | 出品日='    + data[i][CONFIG.COL.LISTED_AT     - 1] +
+        ' | 落札日='    + data[i][CONFIG.COL.WON_AT        - 1] +
+        ' | 落札金額='  + data[i][CONFIG.COL.WINNING_PRICE - 1] +
+        ' | 売上確定日=' + data[i][CONFIG.COL.CONFIRMED_AT  - 1] +
+        ' | ステータス=' + data[i][CONFIG.COL.STATUS        - 1]);
     }
   }
 

@@ -1,6 +1,6 @@
 /**
  * メイン処理モジュール
- * ヤフオク販売管理 自動化システム エントリーポイント
+ * ヤフオク落札管理 自動化システム エントリーポイント
  */
 
 /**
@@ -29,14 +29,11 @@ function processYahooAuctionMails() {
     for (var j = 0; j < messages.length; j++) {
       var message = messages[j];
 
-      // ヤフオク関連メールでなければスキップ
       if (!isYahooAuctionMail(message)) continue;
 
       try {
         var result = processMessage(message);
-        if (result) {
-          processedCount++;
-        }
+        if (result) processedCount++;
       } catch (e) {
         errorCount++;
         log('ERROR', 'メール処理エラー: ' + e.message +
@@ -44,12 +41,10 @@ function processYahooAuctionMails() {
       }
     }
 
-    // スレッドを処理済みにする
     markAsProcessed(thread);
   }
 
-  log('INFO', '処理完了: ' + processedCount + '件処理, ' +
-      errorCount + '件エラー');
+  log('INFO', '処理完了: ' + processedCount + '件処理, ' + errorCount + '件エラー');
   log('INFO', '=== ヤフオクメール処理 終了 ===');
 }
 
@@ -59,8 +54,8 @@ function processYahooAuctionMails() {
  * @return {boolean} 処理成功の場合 true
  */
 function processMessage(message) {
-  var subject = message.getSubject();
-  var body = getPlainBody(message);
+  var subject  = message.getSubject();
+  var body     = getPlainBody(message);
   var mailDate = message.getDate();
   var mailType = classifyMail(subject);
 
@@ -71,10 +66,12 @@ function processMessage(message) {
       return handleListingMail(body, mailDate, subject);
 
     case MAIL_TYPE.BID:
-      return handleBidMail(body, subject);
+      // 入札通知は管理不要（落札通知で上書きされるため）
+      log('INFO', 'スキップ（入札通知）: ' + subject);
+      return false;
 
     case MAIL_TYPE.WINNING:
-      return handleWinningMail(body, subject);
+      return handleWinningMail(body, mailDate, subject);
 
     case MAIL_TYPE.END_UNSOLD:
       return handleEndUnsoldMail(body, subject);
@@ -83,14 +80,11 @@ function processMessage(message) {
       return handleCancelledMail(body, subject);
 
     case MAIL_TYPE.PAYMENT:
-      // 支払い完了は情報ログのみ（既にステータス更新済み）
       log('INFO', 'スキップ（支払い完了）: ' + subject);
       return false;
 
     case MAIL_TYPE.SALES_CONFIRMED:
-      // 売上確定は情報ログのみ
-      log('INFO', 'スキップ（売上確定）: ' + subject);
-      return false;
+      return handleSalesConfirmedMail(body, mailDate, subject);
 
     default:
       log('WARN', '不明なメール種別: ' + subject);
@@ -100,24 +94,22 @@ function processMessage(message) {
 
 /**
  * 出品完了メールを処理する
- * @param {string} body - メール本文
- * @param {Date} mailDate - メール受信日時
- * @param {string} [subject] - メール件名（フォールバック用）
- * @return {boolean} 処理成功の場合 true
+ * 出品日を記録する。落札されなかった行は「出品中」のまま残る。
+ * @param {string} body     - メール本文
+ * @param {Date}   mailDate - メール受信日時
+ * @param {string} [subject] - メール件名
+ * @return {boolean}
  */
 function handleListingMail(body, mailDate, subject) {
   var data = parseListingMail(body, mailDate);
 
-  // 本文パースに失敗した場合、件名からIDを取得
   if (!data && subject) {
     var auctionId = extractAuctionIdFromSubject(subject);
     if (auctionId) {
       data = {
         auctionId: auctionId,
-        listedAt: formatDate(mailDate),
-        itemName: extractItemNameFromSubject(subject),
-        startPrice: 0,
-        endDate: ''
+        listedAt:  formatDate(mailDate),
+        itemName:  extractItemNameFromSubject(subject)
       };
     }
   }
@@ -128,74 +120,28 @@ function handleListingMail(body, mailDate, subject) {
   }
 
   insertAuctionRow(data);
-  log('INFO', '出品追加: ' + data.auctionId + ' - ' + data.itemName);
+  log('INFO', '出品追加/補完: ' + data.auctionId + ' - ' + data.itemName);
   return true;
 }
 
 /**
- * 入札通知メールを処理する
- * @param {string} body - メール本文
- * @param {string} [subject] - メール件名（フォールバック用）
- * @return {boolean} 処理成功の場合 true
- */
-function handleBidMail(body, subject) {
-  var data = parseBidMail(body);
-
-  // 本文パースに失敗した場合、件名からIDを取得
-  if (!data && subject) {
-    var auctionId = extractAuctionIdFromSubject(subject);
-    if (auctionId) {
-      data = { auctionId: auctionId, currentPrice: 0, bidCount: 0 };
-    }
-  }
-
-  if (!data) {
-    log('WARN', '入札通知メールのパースに失敗しました');
-    return false;
-  }
-
-  // 出品行がまだなければプレースホルダーを作成
-  if (findRowByAuctionId(data.auctionId) === -1) {
-    var itemName = subject ? extractItemNameFromSubject(subject) : '';
-    insertAuctionRow({
-      auctionId: data.auctionId,
-      listedAt: '',
-      itemName: itemName,
-      startPrice: 0,
-      endDate: ''
-    });
-    log('INFO', '入札メール先着: プレースホルダー作成 ' + data.auctionId);
-  }
-
-  var updated = updateAuctionRow(data.auctionId, {
-    currentPrice: data.currentPrice,
-    bidCount: data.bidCount
-  });
-
-  if (updated) {
-    log('INFO', '入札更新: ' + data.auctionId +
-        ' 現在価格: ' + data.currentPrice + '円');
-  }
-  return updated;
-}
-
-/**
  * 落札通知メールを処理する
- * @param {string} body - メール本文
- * @param {string} [subject] - メール件名（フォールバック用）
- * @return {boolean} 処理成功の場合 true
+ * 落札日・落札金額を記録し、ステータスを「落札済」にする。
+ * @param {string} body     - メール本文
+ * @param {Date}   mailDate - メール受信日時（落札日として使用）
+ * @param {string} [subject] - メール件名
+ * @return {boolean}
  */
-function handleWinningMail(body, subject) {
+function handleWinningMail(body, mailDate, subject) {
   var data = parseWinningMail(body);
 
-  // 本文パースに失敗した場合、件名からIDを取得
   if (!data && subject) {
     var auctionId = extractAuctionIdFromSubject(subject);
     if (auctionId) {
       data = {
-        auctionId: auctionId,
+        auctionId:    auctionId,
         winningPrice: 0,
-        winner: ''
+        itemName:     extractItemNameFromSubject(subject)
       };
     }
   }
@@ -205,49 +151,47 @@ function handleWinningMail(body, subject) {
     return false;
   }
 
-  // まだ出品行がない場合は新規作成
-  var row = findRowByAuctionId(data.auctionId);
-  if (row === -1 && subject) {
-    var itemName = extractItemNameFromSubject(subject);
-    insertAuctionRow({
-      auctionId: data.auctionId,
-      listedAt: '',
-      itemName: itemName,
-      startPrice: 0,
-      endDate: ''
+  var wonAt    = formatDate(mailDate);
+  var itemName = data.itemName || (subject ? extractItemNameFromSubject(subject) : '');
+
+  // 出品行がまだない場合は落札行として新規作成
+  var existingRow = findRowByAuctionId(data.auctionId);
+  if (existingRow === -1) {
+    insertWonRow({
+      auctionId:    data.auctionId,
+      itemName:     itemName,
+      wonAt:        wonAt,
+      winningPrice: data.winningPrice
+    });
+  } else {
+    // 既存行を更新（落札日・落札金額・ステータスを上書き）
+    updateAuctionRow(data.auctionId, {
+      itemName:     itemName,
+      wonAt:        wonAt,
+      winningPrice: data.winningPrice,
+      status:       CONFIG.STATUS.WON
     });
   }
 
-  var updated = updateAuctionRow(data.auctionId, {
-    itemName: data.itemName,
-    winningPrice: data.winningPrice,
-    currentPrice: data.winningPrice,
-    bidCount: data.bidCount,
-    winner: data.winner,
-    status: CONFIG.STATUS.SOLD
-  });
-
-  if (updated) {
-    log('INFO', '落札更新: ' + data.auctionId +
-        ' 落札価格: ' + data.winningPrice + '円 落札者: ' + data.winner);
-  }
-  return updated;
+  log('INFO', '落札更新: ' + data.auctionId +
+      ' 落札日: ' + wonAt +
+      ' 落札金額: ' + data.winningPrice + '円');
+  return true;
 }
 
 /**
  * 終了通知（未落札）メールを処理する
- * @param {string} body - メール本文
- * @param {string} [subject] - メール件名（フォールバック用）
- * @return {boolean} 処理成功の場合 true
+ * 出品行があればステータスを「未落札」にする。
+ * @param {string} body    - メール本文
+ * @param {string} [subject]
+ * @return {boolean}
  */
 function handleEndUnsoldMail(body, subject) {
   var data = parseEndMail(body);
 
   if (!data && subject) {
     var auctionId = extractAuctionIdFromSubject(subject);
-    if (auctionId) {
-      data = { auctionId: auctionId };
-    }
+    if (auctionId) data = { auctionId: auctionId };
   }
 
   if (!data) {
@@ -255,41 +199,81 @@ function handleEndUnsoldMail(body, subject) {
     return false;
   }
 
-  var updated = updateAuctionRow(data.auctionId, {
-    status: CONFIG.STATUS.UNSOLD
-  });
-
-  if (updated) {
-    log('INFO', '未落札更新: ' + data.auctionId);
+  // 出品行がない場合は更新不要（未落札なのでシートに追加しない）
+  if (findRowByAuctionId(data.auctionId) === -1) {
+    log('INFO', '未落札（出品行なし）: ' + data.auctionId);
+    return false;
   }
+
+  var updated = updateAuctionRow(data.auctionId, { status: CONFIG.STATUS.UNSOLD });
+  if (updated) log('INFO', '未落札更新: ' + data.auctionId);
   return updated;
 }
 
 /**
  * 取消メールを処理する
- * @param {string} body - メール本文
- * @param {string} [subject] - メール件名（フォールバック用）
- * @return {boolean} 処理成功の場合 true
+ * @param {string} body    - メール本文
+ * @param {string} [subject]
+ * @return {boolean}
  */
 function handleCancelledMail(body, subject) {
   var auctionId = extractAuctionId(body);
 
-  if (!auctionId && subject) {
-    auctionId = extractAuctionIdFromSubject(subject);
-  }
+  if (!auctionId && subject) auctionId = extractAuctionIdFromSubject(subject);
 
   if (!auctionId) {
     log('WARN', '取消メールのパースに失敗しました');
     return false;
   }
 
+  if (findRowByAuctionId(auctionId) === -1) {
+    log('INFO', '取消（出品行なし）: ' + auctionId);
+    return false;
+  }
+
+  var updated = updateAuctionRow(auctionId, { status: CONFIG.STATUS.CANCELLED });
+  if (updated) log('INFO', '取消更新: ' + auctionId);
+  return updated;
+}
+
+/**
+ * 売上確定メールを処理する
+ * 売上確定日を記録し、ステータスを「売上確定」にする。
+ * @param {string} body     - メール本文
+ * @param {Date}   mailDate - メール受信日時（売上確定日として使用）
+ * @param {string} [subject]
+ * @return {boolean}
+ */
+function handleSalesConfirmedMail(body, mailDate, subject) {
+  var auctionId = extractAuctionId(body);
+
+  if (!auctionId && subject) auctionId = extractAuctionIdFromSubject(subject);
+
+  if (!auctionId) {
+    log('WARN', '売上確定メールのパースに失敗しました: ' + subject);
+    return false;
+  }
+
+  var confirmedAt = formatDate(mailDate);
+
+  // 落札行がない場合（落札メールが未処理など）はここで新規作成
+  var existingRow = findRowByAuctionId(auctionId);
+  if (existingRow === -1) {
+    insertWonRow({
+      auctionId:    auctionId,
+      itemName:     subject ? extractItemNameFromSubject(subject) : '',
+      wonAt:        '',
+      winningPrice: ''
+    });
+    log('WARN', '売上確定: 対応する落札行がなかったため新規作成: ' + auctionId);
+  }
+
   var updated = updateAuctionRow(auctionId, {
-    status: CONFIG.STATUS.CANCELLED
+    confirmedAt: confirmedAt,
+    status:      CONFIG.STATUS.CONFIRMED
   });
 
-  if (updated) {
-    log('INFO', '取消更新: ' + auctionId);
-  }
+  if (updated) log('INFO', '売上確定更新: ' + auctionId + ' 確定日: ' + confirmedAt);
   return updated;
 }
 
@@ -302,7 +286,6 @@ function handleCancelledMail(body, subject) {
  * GASエディタから手動実行してください
  */
 function setupTrigger() {
-  // 既存の同名トリガーを削除
   removeTrigger();
 
   ScriptApp.newTrigger('processYahooAuctionMails')
@@ -310,8 +293,7 @@ function setupTrigger() {
     .everyMinutes(CONFIG.TRIGGER_INTERVAL_MINUTES)
     .create();
 
-  log('INFO', 'トリガーを設定しました: ' +
-      CONFIG.TRIGGER_INTERVAL_MINUTES + '分間隔');
+  log('INFO', 'トリガーを設定しました: ' + CONFIG.TRIGGER_INTERVAL_MINUTES + '分間隔');
 }
 
 /**
@@ -340,13 +322,12 @@ function importAllMails() {
   log('INFO', '=== 一括インポート 開始 ===');
 
   var startTime = new Date().getTime();
-  var MAX_EXECUTION_TIME = 5 * 60 * 1000; // 5分（余裕をもたせる）
+  var MAX_EXECUTION_TIME = 5 * 60 * 1000; // 5分
 
   var threads = getUnprocessedThreads();
 
   if (threads.length === 0) {
     log('INFO', '未処理メールはありません');
-    // インポート完了フラグをクリア
     PropertiesService.getScriptProperties().deleteProperty('IMPORT_OFFSET');
     return;
   }
@@ -360,13 +341,10 @@ function importAllMails() {
   var processedCount = 0;
 
   for (var i = offset; i < threads.length; i++) {
-    // 実行時間チェック
     var elapsed = new Date().getTime() - startTime;
     if (elapsed > MAX_EXECUTION_TIME) {
-      // 続きは次回実行
       PropertiesService.getScriptProperties().setProperty('IMPORT_OFFSET', String(i));
-      log('INFO', '実行時間上限に達しました。次回 offset=' + i + ' から再開します');
-      log('INFO', '再度 importAllMails() を実行してください');
+      log('INFO', '実行時間上限。次回 offset=' + i + ' から再開します。再度 importAllMails() を実行してください');
       return;
     }
 
@@ -388,7 +366,6 @@ function importAllMails() {
     markAsProcessed(thread);
   }
 
-  // インポート完了
   PropertiesService.getScriptProperties().deleteProperty('IMPORT_OFFSET');
   log('INFO', '一括インポート完了: ' + processedCount + '件処理');
   log('INFO', '=== 一括インポート 終了 ===');

@@ -8,14 +8,14 @@
 
 // メール種別定数
 var MAIL_TYPE = {
-  LISTING: 'listing',           // 出品
-  BID: 'bid',                   // 入札通知
-  WINNING: 'winning',           // 終了（落札者あり）
-  END_UNSOLD: 'end_unsold',     // 終了（落札者なし）
-  CANCELLED: 'cancelled',       // オークション取消
-  PAYMENT: 'payment',           // 支払い完了
-  SALES_CONFIRMED: 'sales_confirmed', // 売上確定
-  UNKNOWN: 'unknown'
+  LISTING:         'listing',          // 出品
+  BID:             'bid',              // 入札通知
+  WINNING:         'winning',          // 終了（落札者あり）
+  END_UNSOLD:      'end_unsold',       // 終了（落札者なし）
+  CANCELLED:       'cancelled',        // オークション取消
+  PAYMENT:         'payment',          // 支払い完了
+  SALES_CONFIRMED: 'sales_confirmed',  // 売上確定
+  UNKNOWN:         'unknown'
 };
 
 /**
@@ -64,7 +64,10 @@ function classifyMail(subject) {
   }
 
   // 売上確定
-  if (/売上が確定しました|売上確定/.test(subject)) {
+  // 例: "Yahoo!オークション - 売上が確定しました：商品名"
+  //     "Yahoo!オークション - 売上が確定しました"
+  //     "【Yahoo!オークション】売上確定のお知らせ"
+  if (/売上が確定しました|売上確定|売上金の振込/.test(subject)) {
     return MAIL_TYPE.SALES_CONFIRMED;
   }
 
@@ -158,26 +161,10 @@ function parseListingMail(body, mailDate) {
     itemName = nameMatch[1].trim();
   }
 
-  // 開始価格: "開始価格：6,000 円" 形式
-  var startPrice = 0;
-  var priceMatch = body.match(/開始価格\s*[：:]\s*([0-9,]+)\s*円/);
-  if (priceMatch) {
-    startPrice = parseInt(priceMatch[1].replace(/,/g, ''), 10);
-  }
-
-  // 終了予定日: "終了日時：5月 17日 23時 45分" 形式
-  var endDate = '';
-  var endMatch = body.match(/終了日時\s*[：:]\s*(.+?)[\r\n]/);
-  if (endMatch) {
-    endDate = endMatch[1].trim();
-  }
-
   return {
     auctionId: auctionId,
-    listedAt: formatDate(mailDate),
-    itemName: itemName,
-    startPrice: startPrice,
-    endDate: endDate
+    listedAt:  formatDate(mailDate),
+    itemName:  itemName
   };
 }
 
