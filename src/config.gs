@@ -5,7 +5,7 @@
 
 // スプレッドシートID（ご自身のスプレッドシートIDに変更してください）
 var CONFIG = {
-  SPREADSHEET_ID: '1Vxeb5e-gz2-87J6Ye6mrIv581GEGR0zSgyLCy41_WXI',
+  SPREADSHEET_ID: '1pg2BG38sZ9kOqv_UI55GpYb5sv6I-JE3_xGmrbmyUIg',
   SHEET_NAME: '落札管理',
 
   // Gmailラベル
