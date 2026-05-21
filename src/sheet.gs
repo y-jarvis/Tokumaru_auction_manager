@@ -118,6 +118,51 @@ function initializeSheet() {
 }
 
 /**
+ * シートを完全リセットする
+ * ヘッダー以外の全データを削除し、不要な列も削除する
+ * ※ 実行後は importAllMails() でデータを再取り込みしてください
+ * GASエディタから手動実行してください
+ */
+function resetSheet() {
+  var ss    = getSpreadsheet();
+  var sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+
+  // 古いシート名（出品管理）が残っていれば削除
+  var oldSheet = ss.getSheetByName('出品管理');
+  if (oldSheet) {
+    ss.deleteSheet(oldSheet);
+    Logger.log('旧シート「出品管理」を削除しました');
+  }
+
+  if (sheet) {
+    // データ行をすべて削除
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.deleteRows(2, lastRow - 1);
+    }
+    // 列数が多すぎる場合は削除
+    var lastCol = sheet.getLastColumn();
+    if (lastCol > CONFIG.HEADERS.length) {
+      sheet.deleteColumns(CONFIG.HEADERS.length + 1, lastCol - CONFIG.HEADERS.length);
+    }
+    // 列数が足りない場合は追加
+    if (lastCol < CONFIG.HEADERS.length) {
+      sheet.insertColumnsAfter(lastCol, CONFIG.HEADERS.length - lastCol);
+    }
+    setupHeaders(sheet);
+  } else {
+    // シートがなければ新規作成
+    sheet = ss.insertSheet(CONFIG.SHEET_NAME);
+    setupHeaders(sheet);
+  }
+
+  // 処理済みラベルもリセット（再インポートのため）
+  resetProcessedLabels();
+
+  Logger.log('シートをリセットしました。次に importAllMails() を実行してください。');
+}
+
+/**
  * オークションIDで該当行を検索する
  * @param {string} auctionId - オークションID
  * @return {number} 行番号（1始まり）。見つからない場合は -1
