@@ -59,22 +59,23 @@ function setupHeaders(sheet) {
 
   // 列幅設定
   var colWidths = {
-    1: 120, // オークションID
-    2: 280, // 商品名
-    3: 130, // 出品日
-    4: 130, // 落札日
-    5:  90, // 落札金額
-    6: 130, // 売上確定日
-    7:  90, // ステータス
-    8:  90, // 仕入価格
-    9:  90, // 利益
-    10: 200 // メモ
+    1:  120, // オークションID
+    2:  280, // 商品名
+    3:  130, // 出品日
+    4:  130, // 落札日
+    5:   90, // 落札金額
+    6:  130, // 売上確定日
+    7:   80, // ステータス
+    8:   90, // 仕入価格
+    9:   90, // 手数料
+    10:  90, // 利益
+    11: 200  // メモ
   };
   for (var col in colWidths) {
     sheet.setColumnWidth(Number(col), colWidths[col]);
   }
 
-  // ステータス列（G列）に条件付き書式を設定
+  // ステータス列に条件付き書式
   var statusCol = CONFIG.COL.STATUS;
   var maxRow = 1000;
   var statusRange = sheet.getRange(2, statusCol, maxRow, 1);
@@ -89,9 +90,7 @@ function setupHeaders(sheet) {
 
   var statusRules = [
     { value: CONFIG.STATUS.WON,       bg: '#b6d7a8', fg: '#274e13' }, // 落札済: 緑
-    { value: CONFIG.STATUS.CONFIRMED, bg: '#c9daf8', fg: '#1c4587' }, // 売上確定: 青
     { value: CONFIG.STATUS.LISTING,   bg: '#fff2cc', fg: '#7f6000' }, // 出品中: 黄
-    { value: CONFIG.STATUS.UNSOLD,    bg: '#e0e0e0', fg: '#555555' }, // 未落札: グレー
     { value: CONFIG.STATUS.CANCELLED, bg: '#f4cccc', fg: '#990000' }  // 取消: 赤
   ];
 
@@ -110,7 +109,7 @@ function setupHeaders(sheet) {
 }
 
 /**
- * シートを初期化する（GASエディタから手動実行用）
+ * シートのヘッダーを再設定する（GASエディタから手動実行用）
  */
 function initializeSheet() {
   var sheet = getAuctionSheet();
@@ -136,10 +135,9 @@ function findRowByAuctionId(auctionId) {
 
 /**
  * 出品完了時に新規行を追加する（出品日の記録用）
- * 落札されなかった場合は '出品中' のまま残るが、ユーザーはステータスでフィルタできる
  * @param {Object} data
  * @param {string} data.auctionId - オークションID
- * @param {string} data.itemName  - 商品名
+ * @param {string} [data.itemName] - 商品名
  * @param {string} [data.listedAt] - 出品日
  */
 function insertAuctionRow(data) {
@@ -147,45 +145,33 @@ function insertAuctionRow(data) {
 
   var existingRow = findRowByAuctionId(data.auctionId);
   if (existingRow !== -1) {
-    // 既存行があれば出品日・商品名だけ補完
+    // 既存行があれば出品日・商品名だけ補完（上書きしない）
     if (data.listedAt) {
       var existingDate = sheet.getRange(existingRow, CONFIG.COL.LISTED_AT).getValue();
-      if (!existingDate) {
-        sheet.getRange(existingRow, CONFIG.COL.LISTED_AT).setValue(data.listedAt);
-      }
+      if (!existingDate) sheet.getRange(existingRow, CONFIG.COL.LISTED_AT).setValue(data.listedAt);
     }
     if (data.itemName) {
       var existingName = sheet.getRange(existingRow, CONFIG.COL.ITEM_NAME).getValue();
-      if (!existingName) {
-        sheet.getRange(existingRow, CONFIG.COL.ITEM_NAME).setValue(data.itemName);
-      }
+      if (!existingName) sheet.getRange(existingRow, CONFIG.COL.ITEM_NAME).setValue(data.itemName);
     }
     return;
   }
 
   var newRow = new Array(CONFIG.HEADERS.length).fill('');
-  newRow[CONFIG.COL.AUCTION_ID - 1]   = data.auctionId;
-  newRow[CONFIG.COL.ITEM_NAME - 1]    = data.itemName  || '';
-  newRow[CONFIG.COL.LISTED_AT - 1]    = data.listedAt  || '';
-  newRow[CONFIG.COL.STATUS - 1]       = CONFIG.STATUS.LISTING;
+  newRow[CONFIG.COL.AUCTION_ID - 1] = data.auctionId;
+  newRow[CONFIG.COL.ITEM_NAME  - 1] = data.itemName || '';
+  newRow[CONFIG.COL.LISTED_AT  - 1] = data.listedAt || '';
+  newRow[CONFIG.COL.STATUS     - 1] = CONFIG.STATUS.LISTING;
 
-  var lastRow = sheet.getLastRow();
-  var targetRow = lastRow + 1;
+  var targetRow = sheet.getLastRow() + 1;
   sheet.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
-
-  // 利益列に数式を設定: =落札金額 - 仕入価格
-  var eCol = columnLetter(CONFIG.COL.WINNING_PRICE);
-  var hCol = columnLetter(CONFIG.COL.COST_PRICE);
-  sheet.getRange(targetRow, CONFIG.COL.PROFIT).setFormula(
-    '=IF(AND(' + eCol + targetRow + '<>"",' + hCol + targetRow + '<>""),' +
-    eCol + targetRow + '-' + hCol + targetRow + ',"")'
-  );
+  setRowFormulas_(sheet, targetRow);
 
   Logger.log('出品行を追加: ' + data.auctionId + ' - ' + data.itemName);
 }
 
 /**
- * 落札通知時に新規行を追加する（行がまだない場合）
+ * 落札通知時に新規行を追加する（出品行がまだない場合）
  * @param {Object} data
  * @param {string} data.auctionId    - オークションID
  * @param {string} [data.itemName]   - 商品名
@@ -196,23 +182,15 @@ function insertWonRow(data) {
   var sheet = getAuctionSheet();
 
   var newRow = new Array(CONFIG.HEADERS.length).fill('');
-  newRow[CONFIG.COL.AUCTION_ID - 1]    = data.auctionId;
-  newRow[CONFIG.COL.ITEM_NAME - 1]     = data.itemName     || '';
-  newRow[CONFIG.COL.LISTED_AT - 1]     = '';
-  newRow[CONFIG.COL.WON_AT - 1]        = data.wonAt        || '';
+  newRow[CONFIG.COL.AUCTION_ID    - 1] = data.auctionId;
+  newRow[CONFIG.COL.ITEM_NAME     - 1] = data.itemName     || '';
+  newRow[CONFIG.COL.WON_AT        - 1] = data.wonAt        || '';
   newRow[CONFIG.COL.WINNING_PRICE - 1] = data.winningPrice || '';
-  newRow[CONFIG.COL.STATUS - 1]        = CONFIG.STATUS.WON;
+  newRow[CONFIG.COL.STATUS        - 1] = CONFIG.STATUS.WON;
 
-  var lastRow = sheet.getLastRow();
-  var targetRow = lastRow + 1;
+  var targetRow = sheet.getLastRow() + 1;
   sheet.getRange(targetRow, 1, 1, newRow.length).setValues([newRow]);
-
-  var eCol = columnLetter(CONFIG.COL.WINNING_PRICE);
-  var hCol = columnLetter(CONFIG.COL.COST_PRICE);
-  sheet.getRange(targetRow, CONFIG.COL.PROFIT).setFormula(
-    '=IF(AND(' + eCol + targetRow + '<>"",' + hCol + targetRow + '<>""),' +
-    eCol + targetRow + '-' + hCol + targetRow + ',"")'
-  );
+  setRowFormulas_(sheet, targetRow);
 
   Logger.log('落札行を追加: ' + data.auctionId + ' - ' + data.itemName);
 }
@@ -220,7 +198,7 @@ function insertWonRow(data) {
 /**
  * 既存行を更新する
  * @param {string} auctionId - オークションID
- * @param {Object} data      - 更新データ（更新したい列のみ含む）
+ * @param {Object} data      - 更新データ
  * @return {boolean} 更新成功の場合 true
  */
 function updateAuctionRow(auctionId, data) {
@@ -243,14 +221,45 @@ function updateAuctionRow(auctionId, data) {
   if (data.status        !== undefined)                       rowValues[CONFIG.COL.STATUS        - 1] = data.status;
 
   rowRange.setValues([rowValues]);
+
+  // 数式が消えた場合に再設定
+  setRowFormulas_(sheet, row);
+
   Logger.log('更新完了: ' + auctionId + ' ' + JSON.stringify(data));
   return true;
 }
 
 /**
- * 列番号をアルファベット（A, B, ... Z, AA, ...）に変換する
+ * 手数料・利益の数式を設定する（内部用）
+ * 手数料 = 落札金額 × 10%
+ * 利益   = 落札金額 − 手数料 − 仕入価格（いずれかが空でも計算）
+ * @param {SpreadsheetApp.Sheet} sheet
+ * @param {number} row - 対象行番号
+ */
+function setRowFormulas_(sheet, row) {
+  var priceCol    = columnLetter(CONFIG.COL.WINNING_PRICE); // E
+  var feeCol      = columnLetter(CONFIG.COL.FEE);           // I
+  var costCol     = columnLetter(CONFIG.COL.COST_PRICE);    // H
+
+  // 手数料: 落札金額が入力されていれば自動計算（10%）
+  sheet.getRange(row, CONFIG.COL.FEE).setFormula(
+    '=IF(' + priceCol + row + '<>"",ROUND(' + priceCol + row + '*0.1,0),"")'
+  );
+
+  // 利益: 落札金額があれば計算。手数料・仕入価格は空でも0として扱う
+  sheet.getRange(row, CONFIG.COL.PROFIT).setFormula(
+    '=IF(' + priceCol + row + '<>"",' +
+    priceCol + row +
+    '-IF(' + feeCol  + row + '<>"",' + feeCol  + row + ',0)' +
+    '-IF(' + costCol + row + '<>"",' + costCol + row + ',0)' +
+    ',"")'
+  );
+}
+
+/**
+ * 列番号をアルファベットに変換する（A, B, ... Z, AA, ...）
  * @param {number} col - 列番号（1始まり）
- * @return {string} 列アルファベット
+ * @return {string}
  */
 function columnLetter(col) {
   var letter = '';
@@ -279,20 +288,19 @@ function debugSheetData() {
   Logger.log('=== データ（' + (lastRow - 1) + '行） ===');
   for (var i = 1; i < data.length; i++) {
     Logger.log(
-      '行' + (i + 1) + ': ID='       + data[i][0] +
-      ' | 商品名='    + data[i][1] +
-      ' | 出品日='    + data[i][2] +
-      ' | 落札日='    + data[i][3] +
-      ' | 落札金額='  + data[i][4] +
-      ' | 売上確定日=' + data[i][5] +
-      ' | ステータス=' + data[i][6]
+      '行' + (i + 1) + ': ID='         + data[i][CONFIG.COL.AUCTION_ID    - 1] +
+      ' | 商品名='    + data[i][CONFIG.COL.ITEM_NAME     - 1] +
+      ' | 出品日='    + data[i][CONFIG.COL.LISTED_AT     - 1] +
+      ' | 落札日='    + data[i][CONFIG.COL.WON_AT        - 1] +
+      ' | 落札金額='  + data[i][CONFIG.COL.WINNING_PRICE - 1] +
+      ' | 売上確定日=' + data[i][CONFIG.COL.CONFIRMED_AT  - 1] +
+      ' | ステータス=' + data[i][CONFIG.COL.STATUS        - 1]
     );
   }
 }
 
 /**
- * 月次サマリーをログに出力する
- * 落札日を基準に集計する
+ * 月次サマリーをログに出力する（落札日基準）
  * GASエディタから手動実行してください
  * @param {number} [year]  - 対象年（省略時は当年）
  * @param {number} [month] - 対象月 1〜12（省略時は当月）
@@ -311,11 +319,10 @@ function getMonthlySummary(year, month) {
 
   var data = sheet.getRange(2, 1, lastRow - 1, CONFIG.HEADERS.length).getValues();
 
-  var totalWon      = 0;
-  var totalConfirmed = 0;
-  var salesSum      = 0;
-  var profitSum     = 0;
-  var profitCount   = 0;
+  var totalWon  = 0;
+  var salesSum  = 0;
+  var profitSum = 0;
+  var profitCount = 0;
 
   data.forEach(function(row) {
     var wonAt = row[CONFIG.COL.WON_AT - 1];
@@ -325,31 +332,30 @@ function getMonthlySummary(year, month) {
     if (isNaN(d.getTime())) return;
     if (d.getFullYear() !== targetYear || (d.getMonth() + 1) !== targetMonth) return;
 
-    var status        = row[CONFIG.COL.STATUS        - 1];
-    var winningPrice  = row[CONFIG.COL.WINNING_PRICE - 1];
-    var costPrice     = row[CONFIG.COL.COST_PRICE    - 1];
+    var status       = row[CONFIG.COL.STATUS        - 1];
+    var winningPrice = row[CONFIG.COL.WINNING_PRICE - 1];
+    var costPrice    = row[CONFIG.COL.COST_PRICE    - 1];
+    var fee          = row[CONFIG.COL.FEE           - 1];
 
-    if (status === CONFIG.STATUS.WON || status === CONFIG.STATUS.CONFIRMED) {
+    if (status === CONFIG.STATUS.WON) {
       totalWon++;
       if (winningPrice) salesSum += Number(winningPrice);
-      if (winningPrice && costPrice) {
-        profitSum += Number(winningPrice) - Number(costPrice);
+      if (winningPrice) {
+        var feeAmt  = fee      ? Number(fee)      : Number(winningPrice) * 0.1;
+        var costAmt = costPrice ? Number(costPrice) : 0;
+        profitSum += Number(winningPrice) - feeAmt - costAmt;
         profitCount++;
       }
-    }
-    if (status === CONFIG.STATUS.CONFIRMED) {
-      totalConfirmed++;
     }
   });
 
   Logger.log('========================================');
   Logger.log(targetYear + '年' + targetMonth + '月 月次サマリー');
   Logger.log('========================================');
-  Logger.log('落札数      : ' + totalWon       + ' 件');
-  Logger.log('売上確定数  : ' + totalConfirmed + ' 件');
-  Logger.log('売上合計    : ' + salesSum.toLocaleString() + ' 円');
-  Logger.log('利益合計    : ' + (profitCount > 0
+  Logger.log('落札数    : ' + totalWon + ' 件');
+  Logger.log('売上合計  : ' + salesSum.toLocaleString() + ' 円');
+  Logger.log('利益合計  : ' + (profitCount > 0
     ? profitSum.toLocaleString() + ' 円（' + profitCount + '件分）'
-    : '（仕入価格未入力）'));
+    : '（データなし）'));
   Logger.log('========================================');
 }

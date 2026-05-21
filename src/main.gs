@@ -205,8 +205,9 @@ function handleEndUnsoldMail(body, subject) {
     return false;
   }
 
-  var updated = updateAuctionRow(data.auctionId, { status: CONFIG.STATUS.UNSOLD });
-  if (updated) log('INFO', '未落札更新: ' + data.auctionId);
+  // 未落札 = ステータス上は「取消」として扱う（出品終了で売上なし）
+  var updated = updateAuctionRow(data.auctionId, { status: CONFIG.STATUS.CANCELLED });
+  if (updated) log('INFO', '未落札（取消）更新: ' + data.auctionId);
   return updated;
 }
 
@@ -268,12 +269,12 @@ function handleSalesConfirmedMail(body, mailDate, subject) {
     log('WARN', '売上確定: 対応する落札行がなかったため新規作成: ' + auctionId);
   }
 
+  // ステータスは変えず（落札済のまま）、売上確定日だけ記録する
   var updated = updateAuctionRow(auctionId, {
-    confirmedAt: confirmedAt,
-    status:      CONFIG.STATUS.CONFIRMED
+    confirmedAt: confirmedAt
   });
 
-  if (updated) log('INFO', '売上確定更新: ' + auctionId + ' 確定日: ' + confirmedAt);
+  if (updated) log('INFO', '売上確定日を記録: ' + auctionId + ' 確定日: ' + confirmedAt);
   return updated;
 }
 

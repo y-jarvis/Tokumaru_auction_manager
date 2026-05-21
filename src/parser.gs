@@ -124,18 +124,24 @@ function extractAuctionIdFromSubject(text) {
 
 /**
  * 件名やファイル名から商品名を抽出する
- * パターン: "Yahoo!オークション - 終了（落札者あり）：商品名(ID).eml"
+ * 対象パターン: "Yahoo!オークション - 終了（落札者あり）：商品名（ID）"
  * @param {string} text - 件名やファイル名
  * @return {string} 商品名
  */
 function extractItemNameFromSubject(text) {
   if (!text) return '';
 
-  // "：商品名(ID)" パターン
-  var match = text.match(/[：:]\s*(.+?)[\(（][a-zA-Z]?\d{7,}[\)）]/);
-  if (match) return match[1].trim();
+  // 件名末尾に "(ID)" または "（ID）" がある場合、その直前の "：" 以降を商品名とする
+  // 例: "Yahoo!オークション - 終了（落札者あり）：商品名（x12345678）"
+  //     → 最後の "：" の後から ID の前までを取得
+  var match = text.match(/[：:]\s*(.+?)[\(（][a-zA-Z]?\d{7,}[\)）][^：:]*$/);
+  if (match) {
+    var name = match[1].trim();
+    // 取得した文字列がシステム語句だけの場合は空扱い
+    if (/^(Yahoo!オークション|オークション)$/.test(name)) return '';
+    return name;
+  }
 
-  // "：（ID）" パターン（出品メール、商品名なし）
   return '';
 }
 

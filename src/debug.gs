@@ -28,7 +28,9 @@ function fullDiagnosis() {
         ' | 落札日='    + data[i][CONFIG.COL.WON_AT        - 1] +
         ' | 落札金額='  + data[i][CONFIG.COL.WINNING_PRICE - 1] +
         ' | 売上確定日=' + data[i][CONFIG.COL.CONFIRMED_AT  - 1] +
-        ' | ステータス=' + data[i][CONFIG.COL.STATUS        - 1]);
+        ' | ステータス='  + data[i][CONFIG.COL.STATUS        - 1] +
+        ' | 手数料='    + data[i][CONFIG.COL.FEE           - 1] +
+        ' | 利益='      + data[i][CONFIG.COL.PROFIT        - 1]);
     }
   }
 

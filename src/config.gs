@@ -28,6 +28,7 @@ var CONFIG = {
     '売上確定日',
     'ステータス',
     '仕入価格',
+    '手数料',
     '利益',
     'メモ'
   ],
@@ -42,19 +43,18 @@ var CONFIG = {
     CONFIRMED_AT:  6,
     STATUS:        7,
     COST_PRICE:    8,
-    PROFIT:        9,
-    MEMO:         10
+    FEE:           9,  // 手数料（落札金額×10%）
+    PROFIT:       10,
+    MEMO:         11
   },
 
   // Driveインポート用フォルダID
   DRIVE_FOLDER_ID: '1B83HS19aaGJ9Qot0Q5rkXheNgZ7kAv-L',
 
-  // ステータス値
+  // ステータス値（3値のみ）
   STATUS: {
-    LISTING:   '出品中',   // 出品完了後・落札前（一時的）
-    WON:       '落札済',   // 落札通知受信後
-    CONFIRMED: '売上確定', // 売上確定通知受信後
-    UNSOLD:    '未落札',
-    CANCELLED: '取消'
+    LISTING:   '出品中',  // 出品後・落札前
+    WON:       '落札済',  // 落札通知受信後
+    CANCELLED: '取消'     // 取消・未落札
   }
 };
