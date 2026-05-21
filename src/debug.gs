@@ -183,6 +183,49 @@ function debugWinningMailBody() {
 }
 
 /**
+ * 売上確定メールの件名・本文を丸ごとログ出力する
+ * 「売上確定メールのパースに失敗しました」が出るときに実行してください
+ * GASエディタから手動実行してください
+ */
+function debugSalesConfirmedMail() {
+  // 件名パターンを広めに検索
+  var queries = [
+    'label:' + CONFIG.LABEL_YAHOO_AUCTION + ' subject:売上が確定',
+    'label:' + CONFIG.LABEL_YAHOO_AUCTION + ' subject:売上確定',
+    'from:@mail.yahoo.co.jp subject:売上'
+  ];
+
+  var found = false;
+  for (var q = 0; q < queries.length; q++) {
+    var threads = GmailApp.search(queries[q], 0, 3);
+    if (threads.length === 0) continue;
+
+    Logger.log('=== クエリ: ' + queries[q] + ' (' + threads.length + '件) ===');
+    for (var t = 0; t < threads.length; t++) {
+      var msgs = threads[t].getMessages();
+      var msg = msgs[msgs.length - 1];
+      Logger.log('--- 件名 ---');
+      Logger.log(msg.getSubject());
+      Logger.log('--- From ---');
+      Logger.log(msg.getFrom());
+      Logger.log('--- 本文（先頭3000文字）---');
+      Logger.log(getPlainBody(msg).substring(0, 3000));
+      Logger.log('--- extractAuctionId 結果 ---');
+      Logger.log(extractAuctionId(getPlainBody(msg)));
+      Logger.log('--- extractAuctionIdFromSubject 結果 ---');
+      Logger.log(extractAuctionIdFromSubject(msg.getSubject()));
+      Logger.log('');
+    }
+    found = true;
+  }
+
+  if (!found) {
+    Logger.log('売上確定メールが見つかりませんでした');
+    Logger.log('「ヤフオク」ラベルが付いているか確認してください');
+  }
+}
+
+/**
  * Gmail ラベル診断: メール検索状況を確認する
  * 「未処理メールはありません」が出るときに実行してください
  */
