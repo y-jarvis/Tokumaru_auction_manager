@@ -95,9 +95,13 @@ function extractAuctionId(body) {
   var idMatch = body.match(/オークションID\s*[：:]\s*([a-zA-Z0-9]+)/);
   if (idMatch) return idMatch[1];
 
-  // オークションID別パターン
   var idMatch2 = body.match(/オークション\s*ID\s*[：:]\s*([a-zA-Z0-9]+)/);
   if (idMatch2) return idMatch2[1];
+
+  // Yahoo!かんたん決済「売上確定」メールの 商品ID パターン
+  // 例: "商品ID ： t1229409399"
+  var itemIdMatch = body.match(/商品ID\s*[：:]\s*([a-zA-Z0-9]+)/);
+  if (itemIdMatch) return itemIdMatch[1];
 
   return null;
 }
