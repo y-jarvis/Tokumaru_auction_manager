@@ -108,6 +108,40 @@ function setupHeaders(sheet) {
   sheet.setConditionalFormatRules(rules);
 }
 
+// ============================================================
+// スプレッドシートカスタムメニュー
+// ============================================================
+
+/**
+ * スプレッドシートを開いたときにカスタムメニューを追加する
+ * ※ setupMenuTrigger() を一度実行してトリガーを登録してください
+ */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('ヤフオク管理')
+    .addItem('📥 メール取り込み', 'importAllMails')
+    .addSeparator()
+    .addItem('🔄 シートリセット＆再取り込み', 'resetSheet')
+    .addItem('📊 今月のサマリー（ログ）', 'getMonthlySummary')
+    .addToUi();
+}
+
+/**
+ * onOpen インストール可能トリガーを登録する
+ * 初回セットアップ時に一度だけ GASエディタから手動実行してください
+ */
+function setupMenuTrigger() {
+  // 既存の onOpen トリガーを削除（重複防止）
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'onOpen') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('onOpen')
+    .forSpreadsheet(getSpreadsheet())
+    .onOpen()
+    .create();
+  Logger.log('メニュートリガーを設定しました。シートを開き直すとメニューが表示されます。');
+}
+
 /**
  * シートのヘッダーを再設定する（GASエディタから手動実行用）
  */
