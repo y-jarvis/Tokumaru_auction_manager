@@ -1,12 +1,12 @@
 /**
  * 設定値
- * ヤフオク販売管理 自動化システム
+ * ヤフオク落札管理 自動化システム
  */
 
 // スプレッドシートID（ご自身のスプレッドシートIDに変更してください）
 var CONFIG = {
-  SPREADSHEET_ID: '1Vxeb5e-gz2-87J6Ye6mrIv581GEGR0zSgyLCy41_WXI',
-  SHEET_NAME: '出品管理',
+  SPREADSHEET_ID: '1pg2BG38sZ9kOqv_UI55GpYb5sv6I-JE3_xGmrbmyUIg',
+  SHEET_NAME: '落札管理',
 
   // Gmailラベル
   LABEL_YAHOO_AUCTION: 'ヤフオク',
@@ -18,48 +18,43 @@ var CONFIG = {
   // 一括インポート時のバッチサイズ（GAS 6分制限対策）
   BATCH_SIZE: 50,
 
-  // ヘッダー行の定義
+  // ヘッダー行の定義（落札された商品のみ管理）
   HEADERS: [
     'オークションID',
-    '出品日時',
     '商品名',
-    '開始価格',
-    '終了予定日',
-    '現在価格',
-    '入札数',
-    '落札価格',
-    '落札者',
+    '出品日',
+    '落札日',
+    '落札金額',
+    '売上確定日',
     'ステータス',
     '仕入価格',
+    '手数料',
     '利益',
     'メモ'
   ],
 
   // 列インデックス（1始まり）
   COL: {
-    AUCTION_ID: 1,
-    LISTED_AT: 2,
-    ITEM_NAME: 3,
-    START_PRICE: 4,
-    END_DATE: 5,
-    CURRENT_PRICE: 6,
-    BID_COUNT: 7,
-    WINNING_PRICE: 8,
-    WINNER: 9,
-    STATUS: 10,
-    COST_PRICE: 11,
-    PROFIT: 12,
-    MEMO: 13
+    AUCTION_ID:    1,
+    ITEM_NAME:     2,
+    LISTED_AT:     3,
+    WON_AT:        4,
+    WINNING_PRICE: 5,
+    CONFIRMED_AT:  6,
+    STATUS:        7,
+    COST_PRICE:    8,
+    FEE:           9,  // 手数料（落札金額×10%）
+    PROFIT:       10,
+    MEMO:         11
   },
 
   // Driveインポート用フォルダID
   DRIVE_FOLDER_ID: '1B83HS19aaGJ9Qot0Q5rkXheNgZ7kAv-L',
 
-  // ステータス値
+  // ステータス値（3値のみ）
   STATUS: {
-    LISTING: '出品中',
-    SOLD: '落札済',
-    UNSOLD: '未落札',
-    CANCELLED: '取消'
+    LISTING:   '出品中',  // 出品後・落札前
+    WON:       '落札済',  // 落札通知受信後
+    CANCELLED: '取消'     // 取消・未落札
   }
 };

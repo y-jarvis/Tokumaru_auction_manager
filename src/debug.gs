@@ -20,18 +20,17 @@ function fullDiagnosis() {
   Logger.log('データ行数: ' + (lastRow - 1));
 
   if (lastRow > 1) {
-    var data = sheet.getRange(2, 1, Math.min(lastRow - 1, 5), 13).getValues();
+    var data = sheet.getRange(2, 1, Math.min(lastRow - 1, 5), CONFIG.HEADERS.length).getValues();
     for (var i = 0; i < data.length; i++) {
-      Logger.log('行' + (i + 2) + ': ID=' + data[i][0] +
-        ' | 出品日=' + data[i][1] +
-        ' | 商品名=' + data[i][2] +
-        ' | 開始価格=' + data[i][3] +
-        ' | 終了予定=' + data[i][4] +
-        ' | 現在価格=' + data[i][5] +
-        ' | 入札数=' + data[i][6] +
-        ' | 落札価格=' + data[i][7] +
-        ' | 落札者=' + data[i][8] +
-        ' | ステータス=' + data[i][9]);
+      Logger.log('行' + (i + 2) + ': ID='        + data[i][CONFIG.COL.AUCTION_ID    - 1] +
+        ' | 商品名='    + data[i][CONFIG.COL.ITEM_NAME     - 1] +
+        ' | 出品日='    + data[i][CONFIG.COL.LISTED_AT     - 1] +
+        ' | 落札日='    + data[i][CONFIG.COL.WON_AT        - 1] +
+        ' | 落札金額='  + data[i][CONFIG.COL.WINNING_PRICE - 1] +
+        ' | 売上確定日=' + data[i][CONFIG.COL.CONFIRMED_AT  - 1] +
+        ' | ステータス='  + data[i][CONFIG.COL.STATUS        - 1] +
+        ' | 手数料='    + data[i][CONFIG.COL.FEE           - 1] +
+        ' | 利益='      + data[i][CONFIG.COL.PROFIT        - 1]);
     }
   }
 
@@ -181,6 +180,49 @@ function debugWinningMailBody() {
   Logger.log(msg.getSubject());
   Logger.log('=== 本文（プレーンテキスト）===');
   Logger.log(msg.getPlainBody().substring(0, 2000));
+}
+
+/**
+ * 売上確定メールの件名・本文を丸ごとログ出力する
+ * 「売上確定メールのパースに失敗しました」が出るときに実行してください
+ * GASエディタから手動実行してください
+ */
+function debugSalesConfirmedMail() {
+  // 件名パターンを広めに検索
+  var queries = [
+    'label:' + CONFIG.LABEL_YAHOO_AUCTION + ' subject:売上が確定',
+    'label:' + CONFIG.LABEL_YAHOO_AUCTION + ' subject:売上確定',
+    'from:@mail.yahoo.co.jp subject:売上'
+  ];
+
+  var found = false;
+  for (var q = 0; q < queries.length; q++) {
+    var threads = GmailApp.search(queries[q], 0, 3);
+    if (threads.length === 0) continue;
+
+    Logger.log('=== クエリ: ' + queries[q] + ' (' + threads.length + '件) ===');
+    for (var t = 0; t < threads.length; t++) {
+      var msgs = threads[t].getMessages();
+      var msg = msgs[msgs.length - 1];
+      Logger.log('--- 件名 ---');
+      Logger.log(msg.getSubject());
+      Logger.log('--- From ---');
+      Logger.log(msg.getFrom());
+      Logger.log('--- 本文（先頭3000文字）---');
+      Logger.log(getPlainBody(msg).substring(0, 3000));
+      Logger.log('--- extractAuctionId 結果 ---');
+      Logger.log(extractAuctionId(getPlainBody(msg)));
+      Logger.log('--- extractAuctionIdFromSubject 結果 ---');
+      Logger.log(extractAuctionIdFromSubject(msg.getSubject()));
+      Logger.log('');
+    }
+    found = true;
+  }
+
+  if (!found) {
+    Logger.log('売上確定メールが見つかりませんでした');
+    Logger.log('「ヤフオク」ラベルが付いているか確認してください');
+  }
 }
 
 /**

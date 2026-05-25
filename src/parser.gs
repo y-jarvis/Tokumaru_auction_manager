@@ -8,14 +8,14 @@
 
 // メール種別定数
 var MAIL_TYPE = {
-  LISTING: 'listing',           // 出品
-  BID: 'bid',                   // 入札通知
-  WINNING: 'winning',           // 終了（落札者あり）
-  END_UNSOLD: 'end_unsold',     // 終了（落札者なし）
-  CANCELLED: 'cancelled',       // オークション取消
-  PAYMENT: 'payment',           // 支払い完了
-  SALES_CONFIRMED: 'sales_confirmed', // 売上確定
-  UNKNOWN: 'unknown'
+  LISTING:         'listing',          // 出品
+  BID:             'bid',              // 入札通知
+  WINNING:         'winning',          // 終了（落札者あり）
+  END_UNSOLD:      'end_unsold',       // 終了（落札者なし）
+  CANCELLED:       'cancelled',        // オークション取消
+  PAYMENT:         'payment',          // 支払い完了
+  SALES_CONFIRMED: 'sales_confirmed',  // 売上確定
+  UNKNOWN:         'unknown'
 };
 
 /**
@@ -64,7 +64,10 @@ function classifyMail(subject) {
   }
 
   // 売上確定
-  if (/売上が確定しました|売上確定/.test(subject)) {
+  // 例: "Yahoo!オークション - 売上が確定しました：商品名"
+  //     "Yahoo!オークション - 売上が確定しました"
+  //     "【Yahoo!オークション】売上確定のお知らせ"
+  if (/売上が確定しました|売上確定|売上金の振込/.test(subject)) {
     return MAIL_TYPE.SALES_CONFIRMED;
   }
 
@@ -92,9 +95,13 @@ function extractAuctionId(body) {
   var idMatch = body.match(/オークションID\s*[：:]\s*([a-zA-Z0-9]+)/);
   if (idMatch) return idMatch[1];
 
-  // オークションID別パターン
   var idMatch2 = body.match(/オークション\s*ID\s*[：:]\s*([a-zA-Z0-9]+)/);
   if (idMatch2) return idMatch2[1];
+
+  // Yahoo!かんたん決済「売上確定」メールの 商品ID パターン
+  // 例: "商品ID ： t1229409399"
+  var itemIdMatch = body.match(/商品ID\s*[：:]\s*([a-zA-Z0-9]+)/);
+  if (itemIdMatch) return itemIdMatch[1];
 
   return null;
 }
@@ -121,18 +128,24 @@ function extractAuctionIdFromSubject(text) {
 
 /**
  * 件名やファイル名から商品名を抽出する
- * パターン: "Yahoo!オークション - 終了（落札者あり）：商品名(ID).eml"
+ * 対象パターン: "Yahoo!オークション - 終了（落札者あり）：商品名（ID）"
  * @param {string} text - 件名やファイル名
  * @return {string} 商品名
  */
 function extractItemNameFromSubject(text) {
   if (!text) return '';
 
-  // "：商品名(ID)" パターン
-  var match = text.match(/[：:]\s*(.+?)[\(（][a-zA-Z]?\d{7,}[\)）]/);
-  if (match) return match[1].trim();
+  // 件名末尾に "(ID)" または "（ID）" がある場合、その直前の "：" 以降を商品名とする
+  // 例: "Yahoo!オークション - 終了（落札者あり）：商品名（x12345678）"
+  //     → 最後の "：" の後から ID の前までを取得
+  var match = text.match(/[：:]\s*(.+?)[\(（][a-zA-Z]?\d{7,}[\)）][^：:]*$/);
+  if (match) {
+    var name = match[1].trim();
+    // 取得した文字列がシステム語句だけの場合は空扱い
+    if (/^(Yahoo!オークション|オークション)$/.test(name)) return '';
+    return name;
+  }
 
-  // "：（ID）" パターン（出品メール、商品名なし）
   return '';
 }
 
@@ -158,26 +171,10 @@ function parseListingMail(body, mailDate) {
     itemName = nameMatch[1].trim();
   }
 
-  // 開始価格: "開始価格：6,000 円" 形式
-  var startPrice = 0;
-  var priceMatch = body.match(/開始価格\s*[：:]\s*([0-9,]+)\s*円/);
-  if (priceMatch) {
-    startPrice = parseInt(priceMatch[1].replace(/,/g, ''), 10);
-  }
-
-  // 終了予定日: "終了日時：5月 17日 23時 45分" 形式
-  var endDate = '';
-  var endMatch = body.match(/終了日時\s*[：:]\s*(.+?)[\r\n]/);
-  if (endMatch) {
-    endDate = endMatch[1].trim();
-  }
-
   return {
     auctionId: auctionId,
-    listedAt: formatDate(mailDate),
-    itemName: itemName,
-    startPrice: startPrice,
-    endDate: endDate
+    listedAt:  formatDate(mailDate),
+    itemName:  itemName
   };
 }
 
